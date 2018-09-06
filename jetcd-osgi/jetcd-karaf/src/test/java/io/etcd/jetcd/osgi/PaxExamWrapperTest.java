@@ -18,11 +18,11 @@ package io.etcd.jetcd.osgi;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
-import io.etcd.jetcd.launcher.EtcdCluster;
-import io.etcd.jetcd.launcher.EtcdClusterFactory;
+import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.notification.Failure;
@@ -34,33 +34,26 @@ import org.junit.runner.notification.Failure;
  * DockerClientProviderStrategy). And even if we were to use the launcher only
  * in the config() method (which "is executed before the OSGi container is
  * launched, so it does run in plain Java"), the Pax Exam probe still needs to
- * load the entire class and all of its references, thus launcher with
- * Testcontainers, into OSGi. It is therefore simplest to just launch the etcd
- * server before getting Pax Exam.
+ * load the entire test class and all of its references (launcher with
+ * Testcontainers) into OSGi, which is a PITA.  There is also no easy way to stop the testcontainer
+ * after). It is therefore simplest to just launch the etcd server before
+ * getting Pax Exam.
  *
  * @author Michael Vorburger.ch
  */
 public class PaxExamWrapperTest {
 
-    // TODO @Rule public final EtcdClusterResource etcd = new
-    // EtcdClusterResource("karaf");
-    // CANNOT use EtcdClusterResource, because Pax Exam would run that INSIDE the
-    // OSGi container
-    // where Testcontainers does not work (see TBD)
-    // Instead, we do it in config(), because
+    @Rule public final EtcdClusterResource etcd = new EtcdClusterResource("karaf");
 
     @Test
     public void testClientServiceChecks() throws Throwable {
-        try (EtcdCluster etcd = EtcdClusterFactory.buildCluster("karaf", 1, false)) {
-            etcd.start();
-            String endpoint = etcd.getClientEndpoints().get(0);
-            Files.write(endpoint, new File("target/endpoint"), Charsets.UTF_8);
+        String endpoint = etcd.cluster().getClientEndpoints().get(0);
+        Files.write(endpoint, new File("target/endpoint"), Charsets.UTF_8);
 
-            Optional<Failure> failure = JUnitCore.runClasses(ClientServiceChecks.class).getFailures().stream()
-                    .findFirst();
-            if (failure.isPresent()) {
-                throw failure.get().getException();
-            }
+        Optional<Failure> failure = JUnitCore.runClasses(ClientServiceChecks.class).getFailures().stream()
+                .findFirst();
+        if (failure.isPresent()) {
+            throw failure.get().getException();
         }
     }
 
