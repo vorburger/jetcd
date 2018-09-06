@@ -31,6 +31,8 @@ import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.logLevel;
 
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.data.ByteSequence;
+import io.etcd.jetcd.launcher.EtcdCluster;
+import io.etcd.jetcd.launcher.EtcdClusterFactory;
 import io.etcd.jetcd.resolver.URIResolver;
 import java.io.File;
 import java.nio.charset.Charset;
@@ -56,6 +58,12 @@ import org.osgi.framework.Constants;
 @ExamReactorStrategy(PerClass.class)
 public class ClientServiceTest extends TestSupport {
 
+  // @Rule
+  // public final EtcdClusterResource etcd = new EtcdClusterResource("karaf");
+  // CANNOT use EtcdClusterResource, because Pax Exam would run that INSIDE the OSGi container
+  // where Testcontainers does not work (see TBD)
+  // Instead, we do it in config(), because "that is executed before the OSGi container is launched, so it does run in plain java."
+
   @Inject
   protected BundleContext bundleContext;
 
@@ -77,6 +85,11 @@ public class ClientServiceTest extends TestSupport {
 
   @Configuration
   public Option[] config() {
+    EtcdCluster cluster = EtcdClusterFactory.buildCluster("karaf", 1, false);
+    cluster.start();
+    // This isn't so great, but seems to work... But even without this, Testcontainers seems to stop the x2 containers (Ryuk and etcd).
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> cluster.close()));
+
     final MavenArtifactUrlReference karafUrl = maven()
         .groupId("org.apache.karaf")
         .artifactId("apache-karaf-minimal")
@@ -113,7 +126,13 @@ public class ClientServiceTest extends TestSupport {
             .artifactId("assertj-core")
             .versionAsInProject()
             .start(),
-        editConfigurationFilePut("etc/io.etcd.jetcd.cfg", "endpoints", "http://localhost:2379"),
+        mavenBundle()
+            .groupId("io.etcd")
+            .artifactId("jetcd-launcher-all")
+            // TODO .versionAsInProject()
+            .version("0.3.0-SNAPSHOT")
+            .start(),
+        editConfigurationFilePut("etc/io.etcd.jetcd.cfg", "endpoints", cluster.getClientEndpoints().get(0)),
         editConfigurationFilePut("etc/io.etcd.jetcd.resolver.dnssrv.cfg", "foo", "bar"),
         keepRuntimeFolder(),
         cleanCaches(),

@@ -33,8 +33,7 @@
     <modules>
         <module>jetcd-osgi</module>
         <module>jetcd-karaf</module>
+        <module>jetcd-launcher-all</module>
     </modules>
-
-
 </project>
 
