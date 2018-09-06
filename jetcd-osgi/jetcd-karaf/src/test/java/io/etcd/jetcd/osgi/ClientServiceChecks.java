@@ -33,7 +33,6 @@ import io.etcd.jetcd.Client;
 import io.etcd.jetcd.data.ByteSequence;
 import io.etcd.jetcd.resolver.URIResolver;
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
@@ -77,7 +76,7 @@ public class ClientServiceChecks extends TestSupport {
   }
 
   @Configuration
-  public Option[] config() throws IOException {
+  public Option[] config() {
     final MavenArtifactUrlReference karafUrl = maven()
         .groupId("org.apache.karaf")
         .artifactId("apache-karaf-minimal")

@@ -16,11 +16,7 @@
 
 package io.etcd.jetcd.osgi;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
-import java.io.File;
-import java.io.IOException;
 import java.util.Optional;
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,29 +31,31 @@ import org.junit.runner.notification.Failure;
  * in the config() method (which "is executed before the OSGi container is
  * launched, so it does run in plain Java"), the Pax Exam probe still needs to
  * load the entire test class and all of its references (launcher with
- * Testcontainers) into OSGi, which is a PITA.  There is also no easy way to stop the testcontainer
- * after). It is therefore simplest to just launch the etcd server before
- * getting Pax Exam.
+ * Testcontainers) into OSGi, which is a PITA. There is also no easy way to stop
+ * the testcontainer after). It is therefore simplest to just launch the etcd
+ * server before getting Pax Exam.
  *
  * @author Michael Vorburger.ch
  */
 public class PaxExamWrapperTest {
 
-    @Rule public final EtcdClusterResource etcd = new EtcdClusterResource("karaf");
+    private static final String ETCD_ENDPOINT_SYSTEM_PROPERTY_NAME = "etcd.endpoint";
+
+    @Rule
+    public final EtcdClusterResource etcd = new EtcdClusterResource("karaf");
 
     @Test
     public void testClientServiceChecks() throws Throwable {
         String endpoint = etcd.cluster().getClientEndpoints().get(0);
-        Files.write(endpoint, new File("target/endpoint"), Charsets.UTF_8);
+        System.setProperty(ETCD_ENDPOINT_SYSTEM_PROPERTY_NAME, endpoint);
 
-        Optional<Failure> failure = JUnitCore.runClasses(ClientServiceChecks.class).getFailures().stream()
-                .findFirst();
+        Optional<Failure> failure = JUnitCore.runClasses(ClientServiceChecks.class).getFailures().stream().findFirst();
         if (failure.isPresent()) {
             throw failure.get().getException();
         }
     }
 
-    static String getClientEndpoints() throws IOException {
-        return Files.readFirstLine(new File("target/endpoint"), Charsets.UTF_8);
+    static String getClientEndpoints() {
+        return System.getProperty(ETCD_ENDPOINT_SYSTEM_PROPERTY_NAME);
     }
 }
